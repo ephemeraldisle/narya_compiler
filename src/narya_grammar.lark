@@ -1,0 +1,165 @@
+%import common.WS_INLINE
+%ignore WS_INLINE
+
+// Tokens
+INDENT: "INDENT"
+DEDENT: "DEDENT"
+NEWLINE: "NEWLINE"
+
+// Start rule
+start: NEWLINE* ring+ NEWLINE*
+
+// Basic structure
+ring: "ring" IDENTIFIER NEWLINE block
+
+block: INDENT statement+ DEDENT
+
+statement: (do_block
+          | function_declaration
+          | group_declaration
+          | generic_declaration
+          | if_statement
+          | while_statement
+          | do_while_statement
+          | for_statement
+          | foreach_statement
+          | match_statement
+          | return_statement
+          | using_statement
+          | with_statement
+          | in_statement
+          | variable_declaration
+          | skip_statement
+          | exit_statement
+          | repeat_statement
+          | anonymous_scope
+          | dangerous_scope
+          | expression) NEWLINE?
+
+do_block.10: "do" NEWLINE block
+
+function_declaration: access_modifier? type_expression? ("," type_expression)* IDENTIFIER "(" parameter_list? ")" NEWLINE block
+
+// Declarations
+variable_declaration: access_modifier? "*"? type_expression IDENTIFIER ("=" expression)?
+
+parameter_list: parameter ("," parameter)*
+
+parameter: type_expression IDENTIFIER
+
+group_declaration: access_modifier? "group" IDENTIFIER IDENTIFIER? NEWLINE block
+
+generic_declaration: "generic" IDENTIFIER "(" IDENTIFIER ("," IDENTIFIER)* ")" (function_declaration | group_declaration)
+
+// Types
+type_expression: (TYPE
+                | collection_type "(" type_expression ("=" type_expression)? ")"
+                | IDENTIFIER ("(" type_expression ("," type_expression)* ")")?
+                | type_expression "?")
+
+collection_type: "List" | "Dictionary" | "Array" | "Set"
+
+// Expressions
+expression: primary
+          | function_call
+          | object_creation
+          | expression operator expression
+          | "(" expression ")"
+          | expression "?" expression "|" expression
+
+primary: IDENTIFIER | literal | anonymous_function | member_access
+
+literal: INTEGER
+       | FLOAT
+       | BOOL
+       | CHAR
+       | STRING
+       | INTERPOLATED_STRING
+       | collection_literal
+
+collection_literal: "(" (expression ("," expression)*)? ")"
+                  | "[" (expression ("," expression)*)? "]"
+                  | "{" (IDENTIFIER "=" expression ("," IDENTIFIER "=" expression)*)? "}"
+                  | "new" "(" INTEGER ")"
+                  | expression ("," expression)*
+
+function_call: (primary | IDENTIFIER) ("." IDENTIFIER)? "(" argument_list? ")"?
+
+argument_list: expression ("," expression)*
+
+anonymous_function: "do" "(" parameter_list? ")" type_expression? (":" expression | NEWLINE block)
+
+member_access: primary "." IDENTIFIER
+
+object_creation: NEW IDENTIFIER ("(" argument_list? ")")?
+
+// Control structures
+if_statement: "if" expression NEWLINE block ("else" "if" expression NEWLINE block)* ("else" NEWLINE block)?
+
+while_statement: "while" expression NEWLINE block
+
+do_while_statement: "do" NEWLINE block (expression "?" "repeat")?
+
+for_statement: "for" IDENTIFIER "=" expression "->" expression NEWLINE block
+
+foreach_statement: "foreach" IDENTIFIER "in" expression NEWLINE block
+
+match_statement: "match" expression NEWLINE INDENT match_case+ DEDENT
+
+match_case: (IDENTIFIER | "_") NEWLINE block
+
+anonymous_scope: "{" NEWLINE? statement* "}" NEWLINE?
+
+dangerous_scope: ("danger" | "!") (anonymous_scope | statement)
+
+// Other statements
+return_statement: "return" expression?
+
+using_statement: "using" IDENTIFIER
+
+with_statement: "with" qualified_name
+
+in_statement: "in" qualified_name
+
+skip_statement: "skip"
+
+exit_statement: "exit"
+
+repeat_statement: "repeat"
+
+// Interpolated strings with escaping
+interpolated_string.10: "'" (string_content)* "'"
+
+string_content: (escape_sequence | interpolation | CHAR)*
+
+interpolation: "." IDENTIFIER
+
+escaped_interpolation: ".."
+
+// Handle escape sequences for quotes and backslashes
+escape_sequence: "''" | "\\\\" | ".."
+
+// Helpers
+qualified_name: IDENTIFIER ("." IDENTIFIER)*
+
+operator: "+" | "-" | "*" | "/" | "%" | "^"
+        | "=" | "!=" | "<" | ">" | "<=" | ">="
+        | "and" | "or" | "not" | "!" 
+        | "||" | "&&" | "^^" | "~~" | "<<" | ">>"
+
+// Access modifiers
+access_modifier: "public" | "private" | "protected"
+
+// Terminals
+TYPE: "num" | "int" | "big int" | "uint" | "big uint" | "float" | "big float" | "text" | "char" | "string" | "bool" | "byte"
+
+INTEGER: /[0-9]+/
+FLOAT: /[0-9]+\.[0-9]+/
+BOOL: "true" | "false"
+CHAR: /'[^'\n\\]'/ 
+STRING: /"[^"\n\\]*"/
+INTERPOLATED_STRING: /'([^'\n\\]|\\'|\\\\)*'/ // Allow escaped quotes and backslashes
+
+NEW: "new"
+
+IDENTIFIER: /[a-zA-Z_][a-zA-Z0-9_]*/
